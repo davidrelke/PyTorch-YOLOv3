@@ -21,3 +21,8 @@ data/carla/labels/
 
 .idea/
 Models/
+data/carla/images/
+
+data/carla_only_cars/labels/
+
+data/carla_only_cars/images/
