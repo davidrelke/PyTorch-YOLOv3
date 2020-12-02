@@ -56,8 +56,22 @@ if __name__ == "__main__":
     model = Darknet(opt.model_def).to(device)
     model.apply(weights_init_normal)
 
+    if opt.latest_checkpoint:
+        checkpoints_path = os.path.abspath("checkpoints")
+        checkpoint_file_name: str = opt.model_def.replace("config/", "").replace(".cfg", "")
+        checkpoint_files: List[str] = [checkpoints_path + "/" + f for f in listdir(checkpoints_path) if isfile(join(checkpoints_path, f))]
+        checkpoint_files = [f for f in checkpoint_files if checkpoint_file_name in f]
+        last_epoch: int = 0
+        for checkpoint_file in checkpoint_files:
+            e: int = int(checkpoint_file.split(".pth")[0].split("_")[-1])
+            if e > last_epoch:
+                last_epoch = e
+        latest_checkpoint_file_name = f"{checkpoint_file_name}_ckpt_{last_epoch}.pth"
+        print(f"Latest Checkpoint file is '{latest_checkpoint_file_name}'. Loading...")
+        model.load_state_dict(torch.load(f"checkpoints/{latest_checkpoint_file_name}"))
+        highest_epoch = last_epoch
     # If specified we start from checkpoint
-    if opt.pretrained_weights:
+    elif opt.pretrained_weights:
         if opt.pretrained_weights.endswith(".pth"):
             model.load_state_dict(torch.load(opt.pretrained_weights))
         else:
