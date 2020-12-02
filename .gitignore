@@ -16,3 +16,7 @@ logs/
 weights/
 
 data/carla/labels/
+
+.vscode/
+
+.idea/
