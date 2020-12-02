@@ -123,14 +123,14 @@ if __name__ == "__main__":
                 # Add the bbox to the plot
                 ax.add_patch(bbox)
                 # Add label
-                plt.text(
-                    x1,
-                    y1,
-                    s=classes[int(cls_pred)],
-                    color="white",
-                    verticalalignment="top",
-                    bbox={"color": color, "pad": 0},
-                )
+                # plt.text(
+                #     x1,
+                #     y1,
+                #     s=classes[int(cls_pred)],
+                #     color="white",
+                #     verticalalignment="top",
+                #     bbox={"color": color, "pad": 0},
+                # )
 
         # Save generated image with detections
         plt.axis("off")
