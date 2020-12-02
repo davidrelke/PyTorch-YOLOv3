@@ -14,3 +14,5 @@ checkpoints
 logs/
 
 weights/
+
+data/carla/labels/
