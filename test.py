@@ -1,5 +1,7 @@
 from __future__ import division
 
+import csv
+
 from models import *
 from utils.utils import *
 from utils.datasets import *
@@ -11,6 +13,7 @@ import time
 import datetime
 import argparse
 import tqdm
+import time
 
 import torch
 from torch.utils.data import DataLoader
@@ -59,10 +62,10 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
+    parser.add_argument("--model_def", type=str, default="config/yolov3-carla.cfg", help="path to model definition file")
+    parser.add_argument("--data_config", type=str, default="config/carla.data", help="path to data config file")
     parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
+    parser.add_argument("--class_path", type=str, default="data/carla.names", help="path to class label file")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.001, help="object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5, help="iou thresshold for non-maximum suppression")
@@ -87,7 +90,7 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(opt.weights_path))
 
     print("Compute mAP...")
-
+    start_time = time.time()
     precision, recall, AP, f1, ap_class = evaluate(
         model,
         path=valid_path,
@@ -97,9 +100,36 @@ if __name__ == "__main__":
         img_size=opt.img_size,
         batch_size=8,
     )
+    end_time = time.time()
 
     print("Average Precisions:")
     for i, c in enumerate(ap_class):
         print(f"+ Class '{c}' ({class_names[c]}) - AP: {AP[i]}")
 
+    print("Precisions:")
+    for i, c in enumerate(ap_class):
+        print(f"+ Class '{c}' ({class_names[c]}) - Precision: {precision[i]}")
+
+    print("Recall:")
+    for i, c in enumerate(ap_class):
+        print(f"+ Class '{c}' ({class_names[c]}) - Recall: {recall[i]}")
+
+    checkpoint_file_name: str = opt.weights_path.replace("weights/", "") \
+                                                .replace("weights\\", "") \
+                                                .replace(".cfg", "")\
+                                                .replace("checkpoints/", "") \
+                                                .replace("checkpoints\\", "") \
+                                                .replace(".pth", "")
+    with open(f"eval/eval_{checkpoint_file_name}.csv", 'w') as f:
+        f.write("mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, recall2, recall3, "
+                "recall4\n")
+        f.write(f"{AP.mean()}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{AP[i]}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{precision[i]}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{recall[i]}, ")
+
     print(f"mAP: {AP.mean()}")
+    print(f"Evaluation took {end_time - start_time} seconds")
