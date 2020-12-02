@@ -1,5 +1,9 @@
 from __future__ import division
 
+from os import listdir
+from os.path import isfile, join
+from typing import List
+
 from models import *
 from utils.logger import *
 from utils.utils import *
@@ -36,10 +40,14 @@ if __name__ == "__main__":
     parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
     parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
+    parser.add_argument("--latest_checkpoint", action="store_true", help="use the latest checkpoint")
+    parser.add_argument("--log_dir", default="logs", type=str, help="Directory fro tensorboard logs")
     opt = parser.parse_args()
     print(opt)
 
-    logger = Logger("logs")
+    logger = Logger(opt.log_dir)
+
+    highest_epoch: int = 0
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -107,7 +115,7 @@ if __name__ == "__main__":
         "conf_noobj",
     ]
 
-    for epoch in range(opt.epochs):
+    for epoch in range(highest_epoch + 1, opt.epochs + highest_epoch):
         model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(dataloader):
@@ -161,6 +169,9 @@ if __name__ == "__main__":
 
             model.seen += imgs.size(0)
 
+        file_name: str = opt.model_def.replace("config/", "").replace(".cfg", "")
+        checkpoint_file_name = f"{file_name}_ckpt_{epoch}.pth"
+        eval_file_name = f"eval/eval_{file_name}.csv"
         if epoch % opt.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
