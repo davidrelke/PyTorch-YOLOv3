@@ -1,6 +1,9 @@
 #!/bin/bash
 
 NUM_CLASSES=$1
+NAME=$2
+
+FILE_NAME=yolov3-${NAME}.cfg
 
 echo "
 [net]
@@ -791,4 +794,4 @@ jitter=.3
 ignore_thresh = .7
 truth_thresh = 1
 random=1
-" >> yolov3-custom.cfg
+" >> $FILE_NAME
