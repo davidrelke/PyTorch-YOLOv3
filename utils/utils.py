@@ -268,6 +268,7 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
 
     ByteTensor = torch.cuda.ByteTensor if pred_boxes.is_cuda else torch.ByteTensor
     FloatTensor = torch.cuda.FloatTensor if pred_boxes.is_cuda else torch.FloatTensor
+    cuda0 = torch.device('cuda:0')
 
     nB = pred_boxes.size(0)
     nA = pred_boxes.size(1)
@@ -275,8 +276,10 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     nG = pred_boxes.size(2)
 
     # Output tensors
-    obj_mask = ByteTensor(nB, nA, nG, nG).fill_(0)
-    noobj_mask = ByteTensor(nB, nA, nG, nG).fill_(1)
+    # obj_mask = ByteTensor(nB, nA, nG, nG).fill_(0)
+    obj_mask = torch.zeros((nB, nA, nG, nG), dtype=torch.bool, device=cuda0)
+    # noobj_mask = ByteTensor(nB, nA, nG, nG).fill_(1)
+    noobj_mask = torch.ones((nB, nA, nG, nG), dtype=torch.bool, device=cuda0)
     class_mask = FloatTensor(nB, nA, nG, nG).fill_(0)
     iou_scores = FloatTensor(nB, nA, nG, nG).fill_(0)
     tx = FloatTensor(nB, nA, nG, nG).fill_(0)
@@ -297,6 +300,12 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     gx, gy = gxy.t()
     gw, gh = gwh.t()
     gi, gj = gxy.long().t()
+    ########## TODO(arthur77wang):
+    gi[gi < 0] = 0
+    gj[gj < 0] = 0
+    gi[gi > nG - 1] = nG - 1
+    gj[gj > nG - 1] = nG - 1
+    ###################
     # Set masks
     obj_mask[b, best_n, gj, gi] = 1
     noobj_mask[b, best_n, gj, gi] = 0

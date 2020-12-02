@@ -1,11 +1,15 @@
 import glob
 import random
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
+import warnings
+
 import numpy as np
 from PIL import Image
 import torch
 import torch.nn.functional as F
+from tensorflow import Tensor
 
 from utils.augmentations import horisontal_flip
 from torch.utils.data import Dataset
@@ -104,7 +108,10 @@ class ListDataset(Dataset):
 
         targets = None
         if os.path.exists(label_path):
-            boxes = torch.from_numpy(np.loadtxt(label_path).reshape(-1, 5))
+            boxes: Tensor
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                boxes = torch.from_numpy(np.loadtxt(label_path).reshape(-1, 5))
             # Extract coordinates for unpadded + unscaled image
             x1 = w_factor * (boxes[:, 1] - boxes[:, 3] / 2)
             y1 = h_factor * (boxes[:, 2] - boxes[:, 4] / 2)
