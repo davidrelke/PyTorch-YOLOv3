@@ -188,5 +188,22 @@ if __name__ == "__main__":
             print(AsciiTable(ap_table).table)
             print(f"---- mAP {AP.mean()}")
 
+            if not os.path.exists(eval_file_name):
+                with open(eval_file_name, 'w') as f:
+                    f.write(
+                        "epoch, mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, "
+                        "recall2, recall3, "
+                        "recall4")
+            with open(eval_file_name, 'a') as f:
+                f.write("\n")
+                f.write(f"{epoch}, ")
+                f.write(f"{AP.mean()}, ")
+                for i, c in enumerate(ap_class):
+                    f.write(f"{AP[i]}, ")
+                for i, c in enumerate(ap_class):
+                    f.write(f"{precision[i]}, ")
+                for i, c in enumerate(ap_class):
+                    f.write(f"{recall[i]}, ")
+
         if epoch % opt.checkpoint_interval == 0:
-            torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
+            torch.save(model.state_dict(), f"checkpoints/{checkpoint_file_name}")
