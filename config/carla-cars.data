@@ -1,0 +1,4 @@
+classes=5
+train=data/carla_only_cars/train.txt
+valid=data/carla_only_cars/val.txt
+names=data/carla.names
