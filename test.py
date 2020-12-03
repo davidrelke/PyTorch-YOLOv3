@@ -1,26 +1,14 @@
 from __future__ import division
 
-import csv
+import argparse
+from typing import List
+
+from torch.utils.data import DataLoader
 
 from models import *
-from utils.utils import *
 from utils.datasets import *
 from utils.parse_config import *
-
-import os
-import sys
-import time
-import datetime
-import argparse
-import tqdm
-import time
-
-import torch
-from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision import transforms
-from torch.autograd import Variable
-import torch.optim as optim
+from utils.utils import *
 
 
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
@@ -59,7 +47,37 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
     return precision, recall, AP, f1, ap_class
 
 
-if __name__ == "__main__":
+def save_print_results(file_name: str, class_names: List[str], confidence_threshold: float, precision: np.ndarray, recall: np.ndarray, ap: np.ndarray, ap_class):
+    print("Average Precisions:")
+    for i, c in enumerate(ap_class):
+        print(f"+ Class '{c}' ({class_names[c]}) - AP: {ap[i]}")
+    print("Precisions:")
+    for i, c in enumerate(ap_class):
+        print(f"+ Class '{c}' ({class_names[c]}) - Precision: {precision[i]}")
+    print("Recall:")
+    for i, c in enumerate(ap_class):
+        print(f"+ Class '{c}' ({class_names[c]}) - Recall: {recall[i]}")
+
+    if not os.path.exists(file_name):
+        with open(file_name, 'w') as f:
+            f.write(
+                "conf_thrs, mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, "
+                "recall2, recall3, "
+                "recall4")
+    with open(file_name, 'a') as f:
+        f.write(f"{confidence_threshold}, ")
+        f.write(f"{ap.mean()}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{ap[i]}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{precision[i]}, ")
+        for i, c in enumerate(ap_class):
+            f.write(f"{recall[i]}, ")
+        f.write("\n")
+    print(f"mAP: {ap.mean()}")
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
     parser.add_argument("--model_def", type=str, default="config/yolov3-carla.cfg", help="path to model definition file")
@@ -67,10 +85,12 @@ if __name__ == "__main__":
     parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
     parser.add_argument("--class_path", type=str, default="data/carla.names", help="path to class label file")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
-    parser.add_argument("--conf_thres", type=float, default=0.001, help="object confidence threshold")
+    parser.add_argument("--conf_thres", type=float, default=0.1, help="object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5, help="iou thresshold for non-maximum suppression")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
+    parser.add_argument("--out", type=str, default=None, help="output file")
+    parser.add_argument("--multi_thrs", action="store_true")
     opt = parser.parse_args()
     print(opt)
 
@@ -78,7 +98,7 @@ if __name__ == "__main__":
 
     data_config = parse_data_config(opt.data_config)
     valid_path = data_config["valid"]
-    class_names = load_classes(data_config["names"])
+    class_names: List[str] = load_classes(data_config["names"])
 
     # Initiate model
     model = Darknet(opt.model_def).to(device)
@@ -89,47 +109,31 @@ if __name__ == "__main__":
         # Load checkpoint weights
         model.load_state_dict(torch.load(opt.weights_path))
 
-    print("Compute mAP...")
-    start_time = time.time()
-    precision, recall, AP, f1, ap_class = evaluate(
-        model,
-        path=valid_path,
-        iou_thres=opt.iou_thres,
-        conf_thres=opt.conf_thres,
-        nms_thres=opt.nms_thres,
-        img_size=opt.img_size,
-        batch_size=8,
-    )
-    end_time = time.time()
-
-    print("Average Precisions:")
-    for i, c in enumerate(ap_class):
-        print(f"+ Class '{c}' ({class_names[c]}) - AP: {AP[i]}")
-
-    print("Precisions:")
-    for i, c in enumerate(ap_class):
-        print(f"+ Class '{c}' ({class_names[c]}) - Precision: {precision[i]}")
-
-    print("Recall:")
-    for i, c in enumerate(ap_class):
-        print(f"+ Class '{c}' ({class_names[c]}) - Recall: {recall[i]}")
-
     checkpoint_file_name: str = opt.weights_path.replace("weights/", "") \
-                                                .replace("weights\\", "") \
-                                                .replace(".cfg", "")\
-                                                .replace("checkpoints/", "") \
-                                                .replace("checkpoints\\", "") \
-                                                .replace(".pth", "")
-    with open(f"eval/eval_{checkpoint_file_name}.csv", 'w') as f:
-        f.write("mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, recall2, recall3, "
-                "recall4\n")
-        f.write(f"{AP.mean()}, ")
-        for i, c in enumerate(ap_class):
-            f.write(f"{AP[i]}, ")
-        for i, c in enumerate(ap_class):
-            f.write(f"{precision[i]}, ")
-        for i, c in enumerate(ap_class):
-            f.write(f"{recall[i]}, ")
+        .replace("weights\\", "") \
+        .replace(".cfg", "") \
+        .replace("checkpoints/", "") \
+        .replace("checkpoints\\", "") \
+        .replace(".pth", "")
+    eval_file_name = opt.out if opt.out else f"eval/eval_{checkpoint_file_name}.csv"
 
-    print(f"mAP: {AP.mean()}")
-    print(f"Evaluation took {end_time - start_time} seconds")
+    if opt.multi_thrs:
+        n_steps = int(math.ceil((1 / opt.conf_thres)))
+        for i in range(n_steps + 1):
+            print("Compute mAP...")
+            confidence_thrs: float = (i * opt.conf_thres) + (0.001 if i == 0 else 0)
+            precision, recall, AP, _, ap_class = evaluate(
+                model,
+                path=valid_path,
+                iou_thres=opt.iou_thres,
+                conf_thres=confidence_thrs,
+                nms_thres=opt.nms_thres,
+                img_size=opt.img_size,
+                batch_size=8,
+            )
+            save_print_results(file_name=eval_file_name, class_names=class_names, confidence_threshold=confidence_thrs, precision=precision, \
+                               recall=recall, ap=AP, ap_class=ap_class)
+
+
+if __name__ == "__main__":
+    main()
