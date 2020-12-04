@@ -63,7 +63,7 @@ def save_print_results(file_name: str, class_names: List[str], confidence_thresh
             f.write(
                 "conf_thrs, mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, "
                 "recall2, recall3, "
-                "recall4")
+                "recall4\n")
     with open(file_name, 'a') as f:
         f.write(f"{confidence_threshold}, ")
         f.write(f"{ap.mean()}, ")
@@ -120,8 +120,8 @@ def main():
     if opt.multi_thrs:
         n_steps = int(math.ceil((1 / opt.conf_thres)))
         for i in range(n_steps + 1):
-            print("Compute mAP...")
-            confidence_thrs: float = (i * opt.conf_thres) + (0.001 if i == 0 else 0)
+            confidence_thrs: float = (i * opt.conf_thres) + (0.001 if i == 0 else 0) - (0.001 if i == n_steps else 0)
+            print(f"Compute metrics for confidence threshold {confidence_thrs}")
             precision, recall, AP, _, ap_class = evaluate(
                 model,
                 path=valid_path,
