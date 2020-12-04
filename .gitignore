@@ -26,3 +26,5 @@ data/carla/images/
 data/carla_only_cars/labels/
 
 data/carla_only_cars/images/
+
+.ipynb_checkpoints/
