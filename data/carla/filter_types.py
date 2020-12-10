@@ -22,10 +22,10 @@ for file in label_files:
                 num_trucks = num_trucks + 1
             elif line.startswith("2"):
                 num_motorbikes = num_motorbikes + 1
-                image_obj = Image.open(file.replace("labels", "images").replace(".txt", ".jpg"))
-                rotated_image = image_obj.transpose(Image.FLIP_LEFT_RIGHT)
-                rotated_image.save(file.replace("labels", "images").replace(".txt", "_rotated.jpg"))
-                rotated_image.show()
+                # image_obj = Image.open(file.replace("labels", "images").replace(".txt", ".jpg"))
+                # rotated_image = image_obj.transpose(Image.FLIP_LEFT_RIGHT)
+                # rotated_image.save(file.replace("labels", "images").replace(".txt", "_rotated.jpg"))
+                # rotated_image.show()
             elif line.startswith("3"):
                 num_bikes = num_bikes + 1
             elif line.startswith("4"):
