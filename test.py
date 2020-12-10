@@ -47,7 +47,8 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
     return precision, recall, AP, f1, ap_class
 
 
-def save_print_results(file_name: str, class_names: List[str], confidence_threshold: float, precision: np.ndarray, recall: np.ndarray, ap: np.ndarray, ap_class):
+def save_print_results(file_name: str, class_names: List[str], confidence_threshold: float, iou_threshold: float, nms_threshold: float,
+                       precision: np.ndarray, recall: np.ndarray, ap: np.ndarray, ap_class, f1: float):
     print("Average Precisions:")
     for i, c in enumerate(ap_class):
         print(f"+ Class '{c}' ({class_names[c]}) - AP: {ap[i]}")
@@ -61,18 +62,21 @@ def save_print_results(file_name: str, class_names: List[str], confidence_thresh
     if not os.path.exists(file_name):
         with open(file_name, 'w') as f:
             f.write(
-                "conf_thrs, mAP, AP0, AP1, AP2, AP3, AP4, precision0, precision1, precision2, precision3, precision4, recall0, recall1, "
-                "recall2, recall3, "
-                "recall4\n")
+                "conf_thrs, iou_thres, nms_thres, mAP, AP0, AP1, AP2, AP3, AP4, "
+                "precision0, precision1, precision2, precision3, precision4, "
+                "recall0, recall1, recall2, recall3, recall4, f1\n")
     with open(file_name, 'a') as f:
         f.write(f"{confidence_threshold}, ")
+        f.write(f"{iou_threshold}, ")
+        f.write(f"{nms_threshold}, ")
         f.write(f"{ap.mean()}, ")
         for i, c in enumerate(ap_class):
             f.write(f"{ap[i]}, ")
-        for i, c in enumerate(ap_class):
+        for i, c in enumerate(precision):
             f.write(f"{precision[i]}, ")
-        for i, c in enumerate(ap_class):
+        for i, c in enumerate(recall):
             f.write(f"{recall[i]}, ")
+        f.write(f"{f1}")
         f.write("\n")
     print(f"mAP: {ap.mean()}")
 
@@ -90,7 +94,7 @@ def main():
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--out", type=str, default=None, help="output file")
-    parser.add_argument("--multi_thrs", action="store_true")
+    parser.add_argument("--multi_thres", action="store_true")
     opt = parser.parse_args()
     print(opt)
 
@@ -117,22 +121,44 @@ def main():
         .replace(".pth", "")
     eval_file_name = opt.out if opt.out else f"eval/eval_{checkpoint_file_name}.csv"
 
-    if opt.multi_thrs:
-        n_steps = int(math.ceil((1 / opt.conf_thres)))
-        for i in range(n_steps + 1):
-            confidence_thrs: float = (i * opt.conf_thres) + (0.001 if i == 0 else 0) - (0.001 if i == n_steps else 0)
-            print(f"Compute metrics for confidence threshold {confidence_thrs}")
-            precision, recall, AP, _, ap_class = evaluate(
-                model,
-                path=valid_path,
-                iou_thres=opt.iou_thres,
-                conf_thres=confidence_thrs,
-                nms_thres=opt.nms_thres,
-                img_size=opt.img_size,
-                batch_size=8,
-            )
-            save_print_results(file_name=eval_file_name, class_names=class_names, confidence_threshold=confidence_thrs, precision=precision, \
-                               recall=recall, ap=AP, ap_class=ap_class)
+    if opt.multi_thres:
+        n_steps_conf = int(math.ceil((1 / opt.conf_thres)))
+        n_steps_iou = int(math.ceil((1 / opt.iou_thres)))
+        n_steps_nms = int(math.ceil((1 / opt.nms_thres)))
+        for i in range(n_steps_conf + 1):
+            confidence_thrs: float = (i * opt.conf_thres) + (0.001 if i == 0 else 0) - (0.001 if i == n_steps_conf else 0)
+            for j in range(n_steps_iou + 1):
+                iou_threshold: float = (j * opt.iou_thres) + (0.001 if j == 0 else 0) - (0.001 if j == n_steps_iou else 0)
+            # for k in range(n_steps_nms + 1):
+            #     nms_threshold: float = (k * opt.nms_thres) + (0.001 if k == 0 else 0) - (0.001 if k == n_steps_nms else 0)
+                nms_threshold = opt.nms_thres
+                # iou_threshold = opt.iou_thres
+                print(f"Compute metrics for confidence threshold {confidence_thrs}, iou threshold {iou_threshold}, mns threshold {nms_threshold}")
+                precision, recall, AP, f1, ap_class = evaluate(
+                    model,
+                    path=valid_path,
+                    iou_thres=iou_threshold,
+                    conf_thres=confidence_thrs,
+                    nms_thres=nms_threshold,
+                    img_size=opt.img_size,
+                    batch_size=8,
+                )
+                save_print_results(file_name=eval_file_name, class_names=class_names, confidence_threshold=confidence_thrs,
+                                   iou_threshold=iou_threshold, nms_threshold=nms_threshold, precision=precision,
+                                   recall=recall, ap=AP, ap_class=ap_class, f1=f1)
+    else:
+        precision, recall, AP, f1, ap_class = evaluate(
+            model,
+            path=valid_path,
+            iou_thres=opt.iou_thres,
+            conf_thres=opt.conf_thres,
+            nms_thres=opt.nms_thres,
+            img_size=opt.img_size,
+            batch_size=8,
+        )
+        save_print_results(file_name=eval_file_name, class_names=class_names, confidence_threshold=opt.conf_thres,
+                           iou_threshold=opt.iou_thres, nms_threshold=opt.nms_thres, precision=precision,
+                           recall=recall, ap=AP, ap_class=ap_class, f1=f1)
 
 
 if __name__ == "__main__":
